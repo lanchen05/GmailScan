@@ -1,28 +1,72 @@
 import asyncio
+import base64
 import json
 import ollama
-from models import init_db, save_to_db
+from src.models import is_processed, save_to_db
+from src.auth import get_gmail_service
 
 
-async def process(queue: asyncio.Queue):
+async def process(con, cur, queue: asyncio.Queue):
+    loop = asyncio.get_event_loop()
     while True:
-        emailID: dict = await queue.get()
-        # call gmail api to get the exact email for this id
-        # TODO: implement the logic to parse emailid, get specific email message for this
-        email = emailID
+        item: dict = await queue.get()
+        if item is None:  # sentinel — crawler is done
+            queue.task_done()
+            break
         try:
-            _handle_email(email)
+            if is_processed(cur, item.get("id")):
+                continue
+            # fetch email — creates its own service so threads don't share a connection
+            email = await loop.run_in_executor(None, fetch_email, item["id"])
+            # handle email
+            await loop.run_in_executor(None, _handle_email, con, cur, email)
         finally:
             queue.task_done()
 
 
-def _handle_email(email: dict):
+def fetch_email(message_id: str, user_id: str = "me") -> dict:
+    service = get_gmail_service()
+    msg = service.users().messages().get(userId=user_id, id=message_id, format="full").execute()
+
+    headers = {h["name"].lower(): h["value"] for h in msg.get("payload", {}).get("headers", [])}
+
+    body = ""
+    payload = msg.get("payload", {})
+    if "parts" in payload:
+        for part in payload["parts"]:
+            if part.get("mimeType") == "text/plain":
+                data = part.get("body", {}).get("data", "")
+                body = base64.urlsafe_b64decode(data + "==").decode("utf-8", errors="ignore")
+                break
+    else:
+        data = payload.get("body", {}).get("data", "")
+        if data:
+            body = base64.urlsafe_b64decode(data + "==").decode("utf-8", errors="ignore")
+
+    return {
+        "id": message_id,
+        "threadId": msg.get("threadId", ""),
+        "from": headers.get("from", ""),
+        "subject": headers.get("subject", ""),
+        "date": headers.get("date", ""),
+        "body": body,
+        "has_attachments": any(part.get("filename") for part in payload.get("parts", [])),
+    }
+
+
+def _handle_email(con, cur, email: dict):
+
     response = ollama.chat(
         model="llama3.2",
         messages=[{"role": "user", "content": _build_prompt(email)}]
     )
-    result = json.loads(response["message"]["content"])
-    save_to_db(email, result["has_pii"], result["findings"])
+    try:
+        result = json.loads(response["message"]["content"])
+        save_to_db(con, cur, email, result["has_pii"], result["findings"])
+    except json.JSONDecodeError:
+        print(f'Skipping {email.get("id")} — Ollama returned invalid JSON')
+        return
+    print(f'Processed message id: {email.get("id")}')
 
 
 def _build_prompt(email: dict) -> str:
@@ -47,56 +91,3 @@ def _build_prompt(email: dict) -> str:
 
             Subject: {email.get('subject', '')}
             Body: {email.get('body', '')}"""
-
-# TODO: delete these tests later.
-
-def main():
-    init_db()
-
-    # Test 1: email with actual PII — should flag
-    pii_email = {
-        "id": "test001",
-        "date": "2026-04-03T12:00:00Z",
-        "from": "bank@example.com",
-        "subject": "Your account details",
-        "body": "Your SSN on file is 123-45-6789 and your routing number is 021000021.",
-        "has_attachments": False
-    }
-
-    # Test 2: email that mentions PII words but has no real values — should NOT flag
-    no_pii_email = {
-        "id": "test002",
-        "date": "2026-04-03T12:00:00Z",
-        "from": "hr@company.com",
-        "subject": "Reminder",
-        "body": "Please do not send your SSN or credit card number over email.",
-        "has_attachments": False
-    }
-
-    # Test 3: completely clean email — should NOT flag
-    clean_email = {
-        "id": "test003",
-        "date": "2026-04-03T12:00:00Z",
-        "from": "friend@gmail.com",
-        "subject": "Lunch tomorrow?",
-        "body": "Hey, are you free for lunch tomorrow at noon?",
-        "has_attachments": False
-    }
-
-    testing4 = {
-        "id": "test004",
-        "date": "2026-04-03T12:00:00Z",
-        "from": "hr@company.com",
-        "subject": "Reminder",
-        "body": "Please do not send your Social Security Number or credit card number over email.",
-        "has_attachments": False
-    }
-
-    for email in [testing4]:
-        print(f"\nTesting: {email['subject']}")
-        _handle_email(email)
-        print("Done.")
-
-
-if __name__ == '__main__':
-    main()
