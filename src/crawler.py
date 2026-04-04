@@ -34,28 +34,3 @@ async def fetch_emails(queue: asyncio.Queue, service, user_id='me', max_results=
             break
 
         await asyncio.sleep(0.1)  # small delay to avoid rate limits
-
-async def process_emails(queue: asyncio.Queue):
-    """
-    Dequeue email IDs and process them.
-    """
-    while True:
-        if queue.empty():
-            await asyncio.sleep(0.1)
-            continue
-
-        email_id = await queue.get()  # take email ID from the queue
-        print(f"[Processor] Processing email ID: {email_id}")
-        await asyncio.sleep(0.2)  # simulate processing
-
-async def run_crawler(max_emails=50):
-    service = get_gmail_service()
-    queue = asyncio.Queue()  # create queue object
-
-    await asyncio.gather(
-        fetch_emails(queue, service, max_results=max_emails),
-        process_emails(queue)
-    )
-
-if __name__ == "__main__":
-    asyncio.run(run_crawler())
