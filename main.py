@@ -1,5 +1,5 @@
 import asyncio
-# from src.crawler import crawl
+from src.crawler import crawl
 from src.processor import process
 
 
@@ -7,7 +7,7 @@ async def main():
     queue = asyncio.Queue()
 
     await asyncio.gather(
-        # crawl(queue),
+        crawl(queue),
         process(queue)
     )
 
