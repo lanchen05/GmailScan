@@ -2,3 +2,5 @@
 .venv/
 .env
 src/__pycache__
+credentials.json
+DONT_USE_credentials.json
