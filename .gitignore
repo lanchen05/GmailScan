@@ -1,0 +1,3 @@
+# All files we DON'T want tracked by git
+
+.env
