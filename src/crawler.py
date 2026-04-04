@@ -1,36 +1,57 @@
 import asyncio
-from auth import get_gmail_service
 
-async def fetch_emails(queue: asyncio.Queue, service, user_id='me', max_results=1000):
-    """
-    Fetch email IDs from Gmail in batches and put them in the queue.
-    """
+try:
+    from auth import get_gmail_service
+except ImportError:
+    from src.auth import get_gmail_service
+
+def create_email_queue(maxsize: int = 100) -> asyncio.Queue:
+    #Create the shared asyncio queue that holds raw Gmail message objects.
+    return asyncio.Queue(maxsize=maxsize)
+
+def list_message_ids(service, user_id: str = "me", page_token: str | None = None) -> dict:
+    #Fetch one page of Gmail message IDs from users.messages.list().
+    #users.messages.list() is from the gmailAPI
+    return (
+        service.users().messages().list(userId=user_id, maxResults=100, pageToken=page_token).execute()
+    )
+
+async def fill_email_queue(queue: asyncio.Queue,user_id: str = "me",max_results: int | None = None,):
+    service = get_gmail_service()
     next_page_token = None
-    total_fetched = 0
-    seen = set()  # prevent duplicates
+    queued_count = 0
 
     while True:
-        response = service.users().messages().list(
-            userId=user_id,
-            maxResults=100,
-            pageToken=next_page_token
-        ).execute()
+        response = list_message_ids(service, user_id=user_id, page_token=next_page_token)
+        messages = response.get("messages", [])
 
-        messages = response.get('messages', [])
-
-        for msg in messages:
-            email_id = msg['id']
-            if email_id not in seen:
-                await queue.put(email_id)  # directly put into the asyncio queue
-                seen.add(email_id)
-                total_fetched += 1
-                if total_fetched >= max_results:
-                    print(f"[Fetcher] Reached max_results: {max_results}")
-                    return
-
-        next_page_token = response.get('nextPageToken')
-        if not next_page_token or total_fetched >= max_results:
-            print(f"[Fetcher] Fetched total emails: {total_fetched}")
+        if not messages:
             break
 
-        await asyncio.sleep(0.1)  # small delay to avoid rate limits
+        for message in messages:
+            if max_results is not None and queued_count >= max_results:
+                return
+
+            if "id" not in message:
+                continue
+
+            await queue.put(
+                {
+                    "id": message["id"],
+                    "threadId": message.get("threadId", ""),
+                }
+            )
+            queued_count += 1
+
+        next_page_token = response.get("nextPageToken")
+        if not next_page_token:
+            break
+
+async def get_next_email(queue: asyncio.Queue) -> dict:
+    #Remove and return the next raw Gmail message object from the queue.
+    return await queue.get()
+
+
+def mark_email_done(queue: asyncio.Queue):
+    #Mark a dequeued queue item as fully processed.
+    queue.task_done()
