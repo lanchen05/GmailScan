@@ -2,12 +2,9 @@
 
 ## CURRENT LIMITATIONS:
 
-- Did not test if async thread pool implementation is correct across all files.
-- No UI for progress yet, only print statements.
-- EXTREMELY SLOW. WAY TOO SLOW WHEN PASSING THROUGH OLLAMA, NEED MUCH MORE OPTIMIZATION
-- API connection isn't stable, don't know why.
+- Only looks through primary inbox - highest probability of hits
 - When model doesn't return correct json format, scanned email is dropped.
-- Looks through entire email base, not just inbox.
+- No tags for 
 
 ## Implementation
 

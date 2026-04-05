@@ -1,9 +1,11 @@
 import asyncio
-MAX_QUEUE = 500
+
+QUEUE_BUFFER = 500   # max IDs held in memory at once (blocks crawler when full)
+MAX_QUEUE = 10000    # max IDs crawled in total across all pages
 
 
-def create_email_queue(maxsize: int = MAX_QUEUE) -> asyncio.Queue:
-    return asyncio.Queue(maxsize=maxsize)
+def create_email_queue() -> asyncio.Queue:
+    return asyncio.Queue(maxsize=QUEUE_BUFFER)
 
 
 def list_message_ids(service, user_id: str = "me", page_token: str | None = None) -> dict:

@@ -7,6 +7,7 @@ import ollama
 from src.models import is_processed, save_to_db
 from src.auth import get_gmail_service
 from src.prescreener import prescreen
+from src.labeler import apply_label
 
 _THREAD_LOCAL = threading.local()
 
@@ -19,7 +20,7 @@ def _get_thread_service():
     return service
 
 
-async def process(con, cur, queue: asyncio.Queue, db_lock: asyncio.Lock):
+async def process(con, cur, queue: asyncio.Queue, db_lock: asyncio.Lock, label_id: str | None = None):
     while True:
         item: dict = await queue.get()
         if item is None:  # sentinel — crawler is done
@@ -54,6 +55,11 @@ async def process(con, cur, queue: asyncio.Queue, db_lock: asyncio.Lock):
             async with db_lock:
                 save_to_db(con, cur, email, result["has_pii"], result["findings"],
                            fetch_ms=fetch_ms, llm_ms=llm_ms, total_ms=total_ms)
+
+            if result["has_pii"] and label_id:
+                await asyncio.to_thread(
+                    apply_label, _get_thread_service(), email["id"], label_id
+                )
         finally:
             queue.task_done()
 
@@ -88,10 +94,13 @@ def fetch_email(message_id: str, user_id: str = "me") -> dict:
     }
 
 
+_BODY_CHAR_LIMIT = 2000
+
 def analyze_email(email: dict) -> dict:
     response = ollama.chat(
         model="llama3.2",
-        messages=[{"role": "user", "content": _build_prompt(email)}]
+        messages=[{"role": "user", "content": _build_prompt(email)}],
+        options={"temperature": 0, "num_predict": 150},
     )
     try:
         return json.loads(response["message"]["content"])
@@ -121,4 +130,4 @@ def _build_prompt(email: dict) -> str:
             }}
 
             Subject: {email.get('subject', '')}
-            Body: {email.get('body', '')}"""
+            Body: {email.get('body', '')[:_BODY_CHAR_LIMIT]}"""
