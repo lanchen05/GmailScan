@@ -6,6 +6,52 @@ const senderFilter = document.getElementById("sender-filter");
 const subjectFilter = document.getElementById("subject-filter");
 const piiOnlyFilter = document.getElementById("pii-only-filter");
 const refreshButton = document.getElementById("refresh-button");
+const navItems = Array.from(document.querySelectorAll(".nav-item"));
+const viewTitle = document.getElementById("view-title");
+const heroTitle = document.getElementById("hero-title");
+const heroCopy = document.getElementById("hero-copy");
+const mailTableBody = document.getElementById("mail-table-body");
+const activityTableBody = document.getElementById("activity-table-body");
+const piiList = document.getElementById("pii-list");
+const mailSummary = document.getElementById("mail-summary");
+const piiSummary = document.getElementById("pii-summary");
+const activitySummary = document.getElementById("activity-summary");
+
+const sections = {
+  dashboard: document.getElementById("dashboard-section"),
+  mail: document.getElementById("mail-section"),
+  pii: document.getElementById("pii-section"),
+  activity: document.getElementById("activity-detail-section"),
+};
+
+const viewPanels = Array.from(document.querySelectorAll(".view-panel"));
+
+const viewConfig = {
+  dashboard: {
+    title: "PII review board",
+    heroTitle: "Track processed messages and inspect flagged results.",
+    heroCopy:
+      "Review the latest scan output, search by sender or subject, and watch risky findings appear as the local database updates.",
+  },
+  mail: {
+    title: "Scanned mail",
+    heroTitle: "Browse the full scanned message set.",
+    heroCopy:
+      "Inspect processed messages across the mailbox with status, timing, and sender metadata in one place.",
+  },
+  pii: {
+    title: "PII findings",
+    heroTitle: "Focus on emails that triggered findings.",
+    heroCopy:
+      "Review only flagged items, inspect extracted findings, and identify the messages that deserve follow-up.",
+  },
+  activity: {
+    title: "Processing activity",
+    heroTitle: "Watch fetch and LLM timing trends.",
+    heroCopy:
+      "Use timing data to see where the pipeline is spending time and how processing performance changes over time.",
+  },
+};
 
 let allEmails = [];
 let refreshInFlight = false;
@@ -178,6 +224,37 @@ function renderTable(emails) {
     .join("");
 }
 
+function renderMailTable(emails) {
+  if (!emails.length) {
+    mailTableBody.innerHTML = `
+      <tr><td colspan="7" class="empty-state">No scanned emails available.</td></tr>
+    `;
+    return;
+  }
+
+  mailTableBody.innerHTML = emails
+    .map(
+      (email) => `
+        <tr>
+          <td>${escapeHtml(email.processedAt)}</td>
+          <td>${escapeHtml(email.sender)}</td>
+          <td>${escapeHtml(email.subject || "(No subject)")}</td>
+          <td><span class="badge ${email.hasPii ? "alert" : "safe"}">${email.hasPii ? "PII" : "Clean"}</span></td>
+          <td>${email.findingCount}</td>
+          <td>
+            <div class="timing-cell">
+              <span><span class="t-label">fetch</span> ${formatMs(email.fetchTimeMs)}</span>
+              <span><span class="t-label">llm</span> ${formatMs(email.llmTimeMs)}</span>
+              <span><span class="t-label">total</span> ${formatMs(email.totalTimeMs)}</span>
+            </div>
+          </td>
+          <td>${escapeHtml(email.gmailId)}</td>
+        </tr>
+      `
+    )
+    .join("");
+}
+
 function renderRiskList(emails) {
   const piiEmails = emails.filter((email) => email.hasPii).slice(0, 5);
 
@@ -197,6 +274,66 @@ function renderRiskList(emails) {
       `
     )
     .join("");
+}
+
+function renderPiiList(emails) {
+  const piiEmails = emails.filter((email) => email.hasPii);
+
+  if (!piiEmails.length) {
+    piiList.innerHTML = `<div class="empty-state">No flagged emails yet.</div>`;
+    return;
+  }
+
+  piiList.innerHTML = piiEmails
+    .map(
+      (email) => `
+        <article class="risk-card">
+          <h3>${escapeHtml(email.subject || "(No subject)")}</h3>
+          <div class="risk-meta">${escapeHtml(email.sender)} | ${escapeHtml(email.processedAt)} | Findings: ${email.findingCount}</div>
+          ${email.findings.length ? email.findings.map(renderFinding).join("") : '<div class="empty-state">No findings stored.</div>'}
+        </article>
+      `
+    )
+    .join("");
+}
+
+function renderActivityTable(emails) {
+  const timed = emails.filter((email) => email.totalTimeMs != null);
+
+  if (!timed.length) {
+    activityTableBody.innerHTML = `
+      <tr><td colspan="5" class="empty-state">No timing data yet.</td></tr>
+    `;
+    return;
+  }
+
+  activityTableBody.innerHTML = timed
+    .map(
+      (email) => `
+        <tr>
+          <td>${escapeHtml(email.processedAt)}</td>
+          <td>${escapeHtml(email.subject || "(No subject)")}</td>
+          <td>${formatMs(email.fetchTimeMs)}</td>
+          <td>${formatMs(email.llmTimeMs)}</td>
+          <td>${formatMs(email.totalTimeMs)}</td>
+        </tr>
+      `
+    )
+    .join("");
+}
+
+function renderViewSummaries(emails) {
+  const piiEmails = emails.filter((email) => email.hasPii);
+  const timed = emails.filter((email) => email.totalTimeMs != null);
+  const avgTotal = timed.length
+    ? Math.round(timed.reduce((sum, email) => sum + email.totalTimeMs, 0) / timed.length)
+    : null;
+
+  mailSummary.textContent = `${emails.length} scanned emails available`;
+  piiSummary.textContent = `${piiEmails.length} flagged emails with ${piiEmails.reduce((sum, email) => sum + email.findingCount, 0)} total findings`;
+  activitySummary.textContent = timed.length
+    ? `${timed.length} emails with timing data • average total ${formatMs(avgTotal)}`
+    : "No timing data yet";
 }
 
 function renderFinding(finding) {
@@ -222,6 +359,33 @@ function applyFilters() {
   });
 
   renderTable(filtered);
+}
+
+function setActiveNav(view) {
+  navItems.forEach((item) => {
+    item.classList.toggle("active", item.dataset.view === view);
+  });
+}
+
+function goToView(view) {
+  setActiveNav(view);
+  const config = viewConfig[view];
+  if (config) {
+    viewTitle.textContent = config.title;
+    heroTitle.textContent = config.heroTitle;
+    heroCopy.textContent = config.heroCopy;
+  }
+
+  viewPanels.forEach((panel) => panel.classList.add("hidden"));
+  if (view === "dashboard") {
+    document.getElementById("dashboard-section").classList.remove("hidden");
+    document.getElementById("activity-section").classList.remove("hidden");
+  } else {
+    const section = sections[view];
+    if (section) {
+      section.classList.remove("hidden");
+    }
+  }
 }
 
 async function loadDashboard() {
@@ -253,6 +417,10 @@ async function loadDashboard() {
     renderMetrics(summary);
     renderLatencyChart(allEmails);
     renderRiskList(allEmails);
+    renderMailTable(allEmails);
+    renderPiiList(allEmails);
+    renderActivityTable(allEmails);
+    renderViewSummaries(allEmails);
     applyFilters();
   } catch (error) {
     tableBody.innerHTML = `
@@ -282,6 +450,10 @@ senderFilter.addEventListener("input", applyFilters);
 subjectFilter.addEventListener("input", applyFilters);
 piiOnlyFilter.addEventListener("change", applyFilters);
 refreshButton.addEventListener("click", loadDashboard);
+navItems.forEach((item) => {
+  item.addEventListener("click", () => goToView(item.dataset.view));
+});
 
 loadDashboard();
+goToView("dashboard");
 setInterval(loadDashboard, 5000);

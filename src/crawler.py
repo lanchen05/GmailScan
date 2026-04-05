@@ -10,7 +10,7 @@ def create_email_queue() -> asyncio.Queue:
 
 def list_message_ids(service, user_id: str = "me", page_token: str | None = None) -> dict:
     return (
-        service.users().messages().list(userId=user_id, q='label:inbox category:primary', maxResults=100, pageToken=page_token).execute()
+        service.users().messages().list(userId=user_id, maxResults=100, pageToken=page_token).execute()
     )
 
 

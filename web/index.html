@@ -18,26 +18,26 @@
         </div>
 
         <nav class="sidebar-nav">
-          <a class="nav-item active" href="#">Dashboard</a>
-          <a class="nav-item" href="#">Scanned Mail</a>
-          <a class="nav-item" href="#">PII Findings</a>
-          <a class="nav-item" href="#">Activity</a>
+          <button class="nav-item active" data-view="dashboard" type="button">Dashboard</button>
+          <button class="nav-item" data-view="mail" type="button">Scanned Mail</button>
+          <button class="nav-item" data-view="pii" type="button">PII Findings</button>
+          <button class="nav-item" data-view="activity" type="button">Activity</button>
         </nav>
       </aside>
 
       <main class="main-shell">
-        <header class="topbar">
+        <header id="topbar-section" class="topbar">
           <div>
             <p class="eyebrow">Operations / Email Security</p>
-            <h1>PII review board</h1>
+            <h1 id="view-title">PII review board</h1>
           </div>
           <button id="refresh-button" class="ghost-button">Refresh</button>
         </header>
 
-        <section class="hero">
+        <section id="hero-section" class="hero">
           <div class="hero-copy-wrap">
-            <h2>Track processed messages and inspect flagged results.</h2>
-            <p class="hero-copy">
+            <h2 id="hero-title">Track processed messages and inspect flagged results.</h2>
+            <p id="hero-copy" class="hero-copy">
               Review the latest scan output, search by sender or subject, and watch risky findings
               appear as the local database updates.
             </p>
@@ -46,12 +46,12 @@
 
         <section class="metrics" id="metrics"></section>
 
-        <section class="panel chart-panel">
+        <section id="activity-section" class="panel chart-panel view-panel">
           <div class="panel-header"><h2>Processing Latency</h2></div>
           <div id="latency-chart" class="chart-container"></div>
         </section>
 
-        <section class="content-grid">
+        <section id="dashboard-section" class="content-grid view-panel">
           <div class="panel">
             <div class="panel-header">
               <h2>Email Review</h2>
@@ -96,6 +96,58 @@
             </div>
             <div id="risk-list" class="risk-list"></div>
           </aside>
+        </section>
+
+        <section id="mail-section" class="panel view-panel hidden">
+          <div class="panel-header">
+            <h2>Scanned Mail</h2>
+          </div>
+          <div id="mail-summary" class="inline-summary"></div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Processed</th>
+                  <th>Sender</th>
+                  <th>Subject</th>
+                  <th>Status</th>
+                  <th>Findings</th>
+                  <th>Timing</th>
+                  <th>Gmail ID</th>
+                </tr>
+              </thead>
+              <tbody id="mail-table-body"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section id="pii-section" class="panel view-panel hidden">
+          <div class="panel-header">
+            <h2>PII Findings</h2>
+          </div>
+          <div id="pii-summary" class="inline-summary"></div>
+          <div id="pii-list" class="risk-list"></div>
+        </section>
+
+        <section id="activity-detail-section" class="panel view-panel hidden">
+          <div class="panel-header">
+            <h2>Processing Activity</h2>
+          </div>
+          <div id="activity-summary" class="inline-summary"></div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Processed</th>
+                  <th>Subject</th>
+                  <th>Fetch</th>
+                  <th>LLM</th>
+                  <th>Total</th>
+                </tr>
+              </thead>
+              <tbody id="activity-table-body"></tbody>
+            </table>
+          </div>
         </section>
       </main>
     </div>
