@@ -5,3 +5,4 @@ src/__pycache__/
 credentials.json
 DONT_USE_credentials.json
 token.json
+data/gmailscan.db
