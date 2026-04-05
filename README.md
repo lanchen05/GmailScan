@@ -1,5 +1,27 @@
 # GmailScan
 
+# CURRENT LIMITATIONS:
+- Did not test if async thread pool implementation is correct across all files.
+- No UI for progress yet, only print statements.
+- EXTREMELY SLOW. WAY TOO SLOW WHEN PASSING THROUGH OLLAMA, NEED MUCH MORE OPTIMIZATION
+- API connection isn't stable, don't know why.
+
+## Implementation
+
+### Running the project
+Requirements:
+- python 3.11+
+- ollama 3.2. Need to make sure you have a running instance of ollama3.2 on localhost.
+
+To set up environment:
+`source .venv/bin/activate`
+`pip install -r requirements.txt`
+
+To execute:
+`python3 main.py`
+
+You will be prompted to login to your gmail account through your default browser. Once you login, return to the appliation to see the progress of the program. 
+
 ## 📂 Project Structure
 ```text
 gmail-ghost-hunter/

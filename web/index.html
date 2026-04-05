@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>GmailScan Dashboard</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div class="layout-shell">
+      <aside class="sidebar">
+        <div class="brand-block">
+          <div class="brand-mark">G</div>
+          <div>
+            <div class="brand-name">GmailScan</div>
+            <div class="brand-subtitle">Audit Workspace</div>
+          </div>
+        </div>
+
+        <nav class="sidebar-nav">
+          <a class="nav-item active" href="#">Dashboard</a>
+          <a class="nav-item" href="#">Scanned Mail</a>
+          <a class="nav-item" href="#">PII Findings</a>
+          <a class="nav-item" href="#">Activity</a>
+        </nav>
+      </aside>
+
+      <main class="main-shell">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">Operations / Email Security</p>
+            <h1>PII review board</h1>
+          </div>
+          <button id="refresh-button" class="ghost-button">Refresh</button>
+        </header>
+
+        <section class="hero">
+          <div class="hero-copy-wrap">
+            <h2>Track processed messages and inspect flagged results.</h2>
+            <p class="hero-copy">
+              Review the latest scan output, search by sender or subject, and watch risky findings
+              appear as the local database updates.
+            </p>
+          </div>
+        </section>
+
+        <section class="metrics" id="metrics"></section>
+
+        <section class="content-grid">
+          <div class="panel">
+            <div class="panel-header">
+              <h2>Email Review</h2>
+            </div>
+
+            <div class="filters">
+              <label>
+                <span>Sender</span>
+                <input id="sender-filter" type="text" placeholder="Filter by sender" />
+              </label>
+              <label>
+                <span>Subject</span>
+                <input id="subject-filter" type="text" placeholder="Filter by subject" />
+              </label>
+              <label class="toggle">
+                <input id="pii-only-filter" type="checkbox" />
+                <span>Show only emails with PII</span>
+              </label>
+            </div>
+
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Processed</th>
+                    <th>Sender</th>
+                    <th>Subject</th>
+                    <th>Status</th>
+                    <th>Findings</th>
+                    <th>Gmail ID</th>
+                  </tr>
+                </thead>
+                <tbody id="email-table-body"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <aside class="panel risk-panel">
+            <div class="panel-header">
+              <h2>Recent Risk Queue</h2>
+            </div>
+            <div id="risk-list" class="risk-list"></div>
+          </aside>
+        </section>
+      </main>
+    </div>
+
+    <script src="/app.js"></script>
+  </body>
+  </html>

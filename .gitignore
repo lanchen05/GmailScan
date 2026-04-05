@@ -1,6 +1,7 @@
 # All files we DON'T want tracked by git
 .venv/
 .env
-src/__pycache__
+src/__pycache__/
 credentials.json
 DONT_USE_credentials.json
+token.json
