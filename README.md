@@ -1,56 +1,126 @@
 # GmailScan
 
-## CURRENT LIMITATIONS:
+A privacy audit tool that scans your Gmail inbox for Personally Identifiable Information (PII) using a local LLM, with a real-time web dashboard to review results.
 
-- Only looks through primary inbox - highest probability of hits
-- When model doesn't return correct json format, scanned email is dropped.
-- No tags for 
+## How It Works
 
-## Implementation
+GmailScan uses a two-stage pipeline to detect PII efficiently:
 
-Average Processing time:
-- v0.5: 33s
+**Stage 1 — Pre-screener (fast):** Each email is scanned with regex patterns and keyword phrases for known PII formats (SSNs, credit card numbers, EINs, inline credentials, etc.). Emails that show no signal are marked clean immediately — no LLM call made.
 
-### Running the project
-Requirements:
-- python 3.11+
-- ollama 3.2. Need to make sure you have a running instance of ollama3.2 on localhost.
+**Stage 2 — LLM analysis (selective):** Only emails flagged as suspicious by Stage 1 are sent to a local Ollama LLM for final confirmation. The LLM distinguishes between emails that merely mention PII terms versus emails that contain actual sensitive values.
 
-To set up environment:
-`source .venv/bin/activate`
-`pip install -r requirements.txt`
+Confirmed PII hits are saved to a local SQLite database, automatically labeled `GmailScan` in Gmail, and displayed in the live dashboard.
 
-To execute:
-`python3 main.py`
+## Features
 
-You will be prompted to login to your gmail account through your default browser. Once you login, return to the appliation to see the progress of the program. 
+- Two-stage PII detection (regex pre-screen + LLM confirmation)
+- Parallel processing with 4 async workers
+- Gmail label `GmailScan` automatically applied to flagged emails
+- Real-time web dashboard at `http://127.0.0.1:8501`
+- Per-email performance metrics (fetch time, LLM time, total time)
+- Bounded queue with backpressure (500 in-memory, up to 10,000 total)
+- Dashboard stays live after processing completes
 
-## 📂 Project Structure
+## PII Detected
+
+| Type | Example |
+| --- | --- |
+| SSN | `123-45-6789` |
+| Credit card | `4111 1111 1111 1111` |
+| EIN / Tax ID | `12-3456789` |
+| Inline credentials | `password: abc123`, `api_key = XYZ` |
+| Bank / routing numbers | keyword-matched, LLM confirmed |
+
+## Project Structure
+
 ```text
-gmail-ghost-hunter/
-├── data/               # SQLite DB
-├── src/
-│   ├── auth.py         # Google OAuth2 Flow
-│   ├── crawler.py      # Gmail API Ingestion -> Queue
-│   ├── processor.py    # Queue -> Ollama -> SQLite
-│   ├── models.py       # DB Schema
-│   └── dashboard.py    # Streamlit UI
+GmailScan/
+├── main.py                # Entry point — orchestrates workers and dashboard
 ├── requirements.txt
-└── main.py             # App Entry Point
+├── credentials.json       # Google OAuth2 credentials (not committed)
+├── token.json             # Cached auth token (not committed)
+├── data/
+│   └── gmailscan.db       # SQLite results database
+├── src/
+│   ├── auth.py            # Google OAuth2 flow (gmail.modify scope)
+│   ├── crawler.py         # Gmail API producer — paginates and fills queue
+│   ├── prescreener.py     # Stage 1: regex + keyword fast filter
+│   ├── processor.py       # Stage 2: fetch email, run LLM, save + label
+│   ├── models.py          # SQLite schema and read/write helpers
+│   ├── labeler.py         # Gmail label management (create or reuse)
+│   └── dashboard.py       # HTTP server for the web UI (/api/emails)
+└── web/
+    ├── index.html
+    ├── app.js
+    └── styles.css
 ```
 
-## Specific Implementation
+## Setup
 
-### Queue Implementation
-Use a asyncio queue. 
-API ingestion queue entry should look like this:
-[
-    {
-        "id": "18f29e3a4b5c6d7e",
-        "threadId": "18f29e3a4b5c6d7e"
-    },
-    {
-        "id": "18f28f1b2c3d4e5f",
-        "threadId": "18f28f1b2c3d4e5f"
-    }
-]
+### Requirements
+
+- Python 3.11+
+- Ollama with `llama3.2` or `llama3.2:1b`
+- A Google Cloud project with the Gmail API enabled and OAuth2 credentials
+
+### Install dependencies
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+### Set up Ollama
+
+```bash
+brew install ollama          # install Ollama if not already present
+ollama serve                 # start the Ollama server
+ollama pull llama3.2:1b      # download the model (faster, recommended)
+```
+
+### Google OAuth credentials
+
+1. Go to [Google Cloud Console](https://console.cloud.google.com/)
+2. Create a project and enable the **Gmail API**
+3. Create OAuth2 credentials (Desktop app) and download as `credentials.json`
+4. Place `credentials.json` in the project root
+
+### Run
+
+```bash
+python3 main.py
+```
+
+A browser window will open on first run for Gmail authorization. After login, the program begins scanning. The dashboard is available at `http://127.0.0.1:8501` and stays live after processing finishes — press `Ctrl+C` to exit.
+
+> On subsequent runs the cached `token.json` is reused automatically.
+
+## Performance
+
+| Version | Avg time per email |
+| --- | --- |
+| v0.5 (LLM every email) | ~33s |
+| Current (pre-screen + capped output) | significantly faster for clean emails |
+
+Tunable constants in `src/crawler.py`:
+
+| Constant | Default | Purpose |
+| --- | --- | --- |
+| `QUEUE_BUFFER` | 500 | Max IDs held in memory at once |
+| `MAX_QUEUE` | 10,000 | Total emails crawled per run |
+
+Tunable constants in `src/processor.py`:
+
+| Constant | Default | Purpose |
+| --- | --- | --- |
+| `_BODY_CHAR_LIMIT` | 2,000 | Max characters sent to LLM |
+| `num_predict` | 150 | Max tokens in LLM response |
+| `WORKER_COUNT` (main.py) | 4 | Parallel processing workers |
+
+## Known Limitations
+
+- Only scans Primary inbox (highest PII probability, intentional)
+- LLM inference on CPU is the main throughput bottleneck
+- No support for HTML-only emails (plain text extracted only)
