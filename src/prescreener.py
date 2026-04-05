@@ -39,6 +39,7 @@ _PATTERNS: list[tuple[str, re.Pattern]] = [
 _KEYWORDS: list[str] = [
     "social security number",
     "social security #",
+    "social security",
     "bank account number",
     "routing number",
     "account number",
@@ -46,8 +47,7 @@ _KEYWORDS: list[str] = [
     "card number",
     "tax id",
     "taxpayer id",
-    "your ssn",
-    "ssn:",
+    "ssn",
 ]
 
 

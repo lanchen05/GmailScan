@@ -93,7 +93,7 @@ def fetch_email(message_id: str, user_id: str = "me") -> dict:
         "has_attachments": any(part.get("filename") for part in payload.get("parts", [])),
     }
 
-
+# limit ollama parameters
 _BODY_CHAR_LIMIT = 2000
 
 def analyze_email(email: dict) -> dict:

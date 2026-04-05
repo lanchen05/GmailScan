@@ -190,16 +190,48 @@ body {
   font-weight: 700;
 }
 
-.perf-metrics {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
+.chart-panel {
   margin-bottom: 16px;
+  overflow: visible;
 }
 
-.metric-card.perf {
-  background: #f0f4ff;
-  border-color: #c5d4f5;
+.chart-container {
+  position: relative;
+  width: 100%;
+  overflow: visible;
+}
+
+.chart-dot {
+  fill: var(--accent);
+  stroke: #fff;
+  stroke-width: 1.5;
+  cursor: crosshair;
+  transition: r 0.1s;
+}
+
+.chart-dot:hover {
+  r: 7;
+  fill: var(--danger);
+}
+
+.chart-label {
+  font-size: 11px;
+  fill: var(--muted);
+  font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+}
+
+.chart-tooltip {
+  position: absolute;
+  background: var(--text);
+  color: #fff;
+  font-size: 0.78rem;
+  line-height: 1.6;
+  padding: 7px 10px;
+  border-radius: 6px;
+  white-space: pre;
+  pointer-events: none;
+  z-index: 10;
+  box-shadow: 0 2px 8px rgba(9,30,66,0.3);
 }
 
 .timing-cell {
@@ -419,7 +451,6 @@ tbody tr:hover {
   }
 
   .metrics,
-  .perf-metrics,
   .content-grid,
   .filters {
     grid-template-columns: 1fr;
