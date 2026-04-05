@@ -1,14 +1,18 @@
 import asyncio
 import time
+import threading
 
 from src.auth import get_gmail_service
 from src.crawler import close_email_queue, create_email_queue, fill_email_queue
 from src.models import close_db, connect_db, init_db
 from src.processor import process
+from src.dashboard import run_dashboard_server
 
 WORKER_COUNT = 4
 
 async def main():
+    threading.Thread(target=run_dashboard_server, daemon=True).start()
+
     con, cur = connect_db()
     init_db(con, cur)
     service = get_gmail_service()

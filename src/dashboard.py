@@ -106,6 +106,3 @@ def run_dashboard_server(host: str = "127.0.0.1", port: int = 8501):
     print(f"GmailScan dashboard running at http://{host}:{port}")
     server.serve_forever()
 
-
-if __name__ == "__main__":
-    run_dashboard_server()
