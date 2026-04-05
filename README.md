@@ -78,6 +78,8 @@ pip install -r requirements.txt
 brew install ollama          # install Ollama if not already present
 ollama serve                 # start the Ollama server
 ollama pull llama3.2:1b      # download the model (faster, recommended)
+ollama list                  # verify that llama3.2 is downloaded
+ollama run llama3.2:1b       # run the llama3.2 LLM
 ```
 
 ### Google OAuth credentials
