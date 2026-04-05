@@ -16,6 +16,5 @@ async def main():
         print(message)
         mark_email_done(queue)
 
-
 if __name__ == "__main__":
     asyncio.run(main())
