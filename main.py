@@ -1,25 +1,38 @@
 import asyncio
+import json
+import os
 import time
-import threading
+from datetime import datetime, timezone
+from pathlib import Path
 
 from src.auth import get_gmail_service
 from src.crawler import close_email_queue, create_email_queue, fill_email_queue
 from src.models import close_db, connect_db, init_db
 from src.processor import process
-from src.dashboard import run_dashboard_server
 from src.labeler import get_or_create_label
 
 WORKER_COUNT = 4
+SCAN_STATUS_PATH = Path("data/scan_status.json")
+
+
+def _write_scan_status(status: str, started_at: str | None = None, finished_at: str | None = None):
+    SCAN_STATUS_PATH.parent.mkdir(parents=True, exist_ok=True)
+    payload = {"status": status, "startedAt": started_at, "finishedAt": finished_at}
+    tmp = SCAN_STATUS_PATH.with_suffix(".json.tmp")
+    tmp.write_text(json.dumps(payload))
+    os.replace(tmp, SCAN_STATUS_PATH)
+
 
 async def main():
-    threading.Thread(target=run_dashboard_server, daemon=True).start()
-
     con, cur = connect_db()
     init_db(con, cur)
     service = get_gmail_service()
     label_id = get_or_create_label(service)
     queue = create_email_queue()
     db_lock = asyncio.Lock()
+
+    started_at = datetime.now(timezone.utc).isoformat()
+    _write_scan_status("running", started_at=started_at)
 
     try:
         producer_task = asyncio.create_task(fill_email_queue(service, queue))
@@ -33,10 +46,11 @@ async def main():
         await queue.join()
         await asyncio.gather(*worker_tasks)
 
-        print("Processing complete. Dashboard still running at http://127.0.0.1:8501 — press Ctrl+C to exit.")
-        await asyncio.Event().wait()
+        _write_scan_status("done", started_at=started_at, finished_at=datetime.now(timezone.utc).isoformat())
+        print("Processing complete. Open http://localhost:3000 to view results.")
     finally:
         close_db(con)
+
 
 if __name__ == "__main__":
     for attempt in range(3):
