@@ -2,9 +2,11 @@ import asyncio
 import base64
 import json
 import threading
+import time
 import ollama
 from src.models import is_processed, save_to_db
 from src.auth import get_gmail_service
+from src.prescreener import prescreen
 
 _THREAD_LOCAL = threading.local()
 
@@ -28,12 +30,30 @@ async def process(con, cur, queue: asyncio.Queue, db_lock: asyncio.Lock):
                 if is_processed(cur, item.get("id")):
                     continue
 
+            total_start = time.perf_counter()
+
+            fetch_start = time.perf_counter()
             email = await asyncio.to_thread(fetch_email, item["id"])
-            result = await asyncio.to_thread(analyze_email, email)
+            fetch_ms = round((time.perf_counter() - fetch_start) * 1000)
+
+            suspicious, hints = prescreen(email)
+
+            if not suspicious:
+                result = {"has_pii": False, "findings": []}
+                llm_ms = None
+                total_ms = round((time.perf_counter() - total_start) * 1000)
+                print(f'Prescreened clean: {email.get("id")} (fetch={fetch_ms}ms, total={total_ms}ms)')
+            else:
+                llm_start = time.perf_counter()
+                result = await asyncio.to_thread(analyze_email, email)
+                llm_ms = round((time.perf_counter() - llm_start) * 1000)
+                total_ms = round((time.perf_counter() - total_start) * 1000)
+                print(f'LLM analyzed: {email.get("id")} hints={hints} '
+                      f'(fetch={fetch_ms}ms, llm={llm_ms}ms, total={total_ms}ms)')
 
             async with db_lock:
-                save_to_db(con, cur, email, result["has_pii"], result["findings"])
-            print(f'Processed message id: {email.get("id")}')
+                save_to_db(con, cur, email, result["has_pii"], result["findings"],
+                           fetch_ms=fetch_ms, llm_ms=llm_ms, total_ms=total_ms)
         finally:
             queue.task_done()
 

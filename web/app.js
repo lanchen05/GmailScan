@@ -1,4 +1,5 @@
 const metricsRoot = document.getElementById("metrics");
+const perfMetricsRoot = document.getElementById("perf-metrics");
 const tableBody = document.getElementById("email-table-body");
 const riskList = document.getElementById("risk-list");
 const senderFilter = document.getElementById("sender-filter");
@@ -21,6 +22,30 @@ function renderMetrics(summary) {
     .map(
       ({ label, value, tone }) => `
         <article class="metric-card ${tone}">
+          <div class="metric-label">${label}</div>
+          <div class="metric-value">${value}</div>
+        </article>
+      `
+    )
+    .join("");
+}
+
+function formatMs(ms) {
+  if (ms == null) return "—";
+  return ms >= 1000 ? (ms / 1000).toFixed(1) + "s" : ms + "ms";
+}
+
+function renderPerfMetrics(summary) {
+  const cards = [
+    { label: "Avg Fetch Time", value: formatMs(summary.avgFetchMs), title: "Gmail API fetch" },
+    { label: "Avg LLM Time",   value: formatMs(summary.avgLlmMs),   title: "Ollama inference" },
+    { label: "Avg Total Time", value: formatMs(summary.avgTotalMs), title: "End-to-end per email" },
+  ];
+
+  perfMetricsRoot.innerHTML = cards
+    .map(
+      ({ label, value, title }) => `
+        <article class="metric-card perf" title="${title}">
           <div class="metric-label">${label}</div>
           <div class="metric-value">${value}</div>
         </article>
@@ -52,6 +77,13 @@ function renderTable(emails) {
             </span>
           </td>
           <td>${email.findingCount}</td>
+          <td>
+            <div class="timing-cell">
+              <span><span class="t-label">fetch</span> ${formatMs(email.fetchTimeMs)}</span>
+              <span><span class="t-label">llm</span> ${formatMs(email.llmTimeMs)}</span>
+              <span><span class="t-label">total</span> ${formatMs(email.totalTimeMs)}</span>
+            </div>
+          </td>
           <td>${escapeHtml(email.gmailId)}</td>
         </tr>
       `
@@ -122,12 +154,17 @@ async function loadDashboard() {
 
     const payload = await response.json();
     allEmails = payload.emails || [];
-    renderMetrics(payload.summary || {
+    const summary = payload.summary || {
       totalScanned: 0,
       piiHits: 0,
       cleanEmails: 0,
       totalFindings: 0,
-    });
+      avgFetchMs: null,
+      avgLlmMs: null,
+      avgTotalMs: null,
+    };
+    renderMetrics(summary);
+    renderPerfMetrics(summary);
     renderRiskList(allEmails);
     applyFilters();
   } catch (error) {

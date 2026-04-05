@@ -1,12 +1,18 @@
 # GmailScan
 
-# CURRENT LIMITATIONS:
+## CURRENT LIMITATIONS:
+
 - Did not test if async thread pool implementation is correct across all files.
 - No UI for progress yet, only print statements.
 - EXTREMELY SLOW. WAY TOO SLOW WHEN PASSING THROUGH OLLAMA, NEED MUCH MORE OPTIMIZATION
 - API connection isn't stable, don't know why.
+- When model doesn't return correct json format, scanned email is dropped.
+- Looks through entire email base, not just inbox.
 
 ## Implementation
+
+Average Processing time:
+- v0.5: 33s
 
 ### Running the project
 Requirements:

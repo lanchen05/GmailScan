@@ -36,7 +36,8 @@ def load_dashboard_payload() -> dict:
     with sqlite3.connect(DB_PATH) as con:
         rows = con.execute(
             """
-            SELECT gmail_id, date, sender, subject, has_pii, findings, processed_at
+            SELECT gmail_id, date, sender, subject, has_pii, findings, processed_at,
+                   fetch_time_ms, llm_time_ms, total_time_ms
             FROM scanned_emails
             ORDER BY processed_at DESC
             """
@@ -45,13 +46,16 @@ def load_dashboard_payload() -> dict:
     emails = []
     pii_hits = 0
     total_findings = 0
+    timed_rows = []
 
-    for gmail_id, date, sender, subject, has_pii, findings, processed_at in rows:
+    for gmail_id, date, sender, subject, has_pii, findings, processed_at, fetch_ms, llm_ms, total_ms in rows:
         parsed_findings = _parse_findings(findings)
         finding_count = len(parsed_findings)
         pii_flag = bool(has_pii)
         pii_hits += 1 if pii_flag else 0
         total_findings += finding_count
+        if total_ms is not None:
+            timed_rows.append((fetch_ms, llm_ms, total_ms))
 
         emails.append(
             {
@@ -63,8 +67,17 @@ def load_dashboard_payload() -> dict:
                 "findings": parsed_findings,
                 "findingCount": finding_count,
                 "processedAt": processed_at or "",
+                "fetchTimeMs": fetch_ms,
+                "llmTimeMs": llm_ms,
+                "totalTimeMs": total_ms,
             }
         )
+
+    n = len(timed_rows)
+    llm_rows = [r for r in timed_rows if r[1] is not None]
+    avg_fetch = round(sum(r[0] for r in timed_rows) / n) if n else None
+    avg_llm   = round(sum(r[1] for r in llm_rows) / len(llm_rows)) if llm_rows else None
+    avg_total = round(sum(r[2] for r in timed_rows) / n) if n else None
 
     return {
         "summary": {
@@ -72,6 +85,9 @@ def load_dashboard_payload() -> dict:
             "piiHits": pii_hits,
             "cleanEmails": len(emails) - pii_hits,
             "totalFindings": total_findings,
+            "avgFetchMs": avg_fetch,
+            "avgLlmMs": avg_llm,
+            "avgTotalMs": avg_total,
         },
         "emails": emails,
     }

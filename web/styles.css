@@ -190,6 +190,36 @@ body {
   font-weight: 700;
 }
 
+.perf-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.metric-card.perf {
+  background: #f0f4ff;
+  border-color: #c5d4f5;
+}
+
+.timing-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 0.82rem;
+  color: var(--text);
+}
+
+.t-label {
+  display: inline-block;
+  width: 34px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+}
+
 .content-grid {
   display: grid;
   grid-template-columns: minmax(0, 1.5fr) minmax(320px, 0.9fr);
@@ -389,6 +419,7 @@ tbody tr:hover {
   }
 
   .metrics,
+  .perf-metrics,
   .content-grid,
   .filters {
     grid-template-columns: 1fr;
